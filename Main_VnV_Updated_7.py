@@ -31,15 +31,20 @@ import ttk
 import docx
 from docx import Document
 
-
 teams = range(100)
 #####################################################################
 
-FileTypeList_withoutResult = ['.java', '.JAVA', '.BAT', '.bat', '.ICE', '.ice']
+FileTypeList_withoutResult = ['.java', '.JAVA', '.BAT', '.bat', '.ICE', '.ice', '.C', '.c']
 ResultFileTypeList = ['.RES', '.res']
 ExcelFiles=[".xlsx",".XLSX",".xls",".XLS"]
 docx_type=['.docx', '.DOCX']
 
+####################################inprogress############################################
+def inprogress():
+     input_frame1 = Frame(window, width = 200, height = 22 , bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 1)
+     input_frame1.place(x=130, y=223+50)
+     w = Label(input_frame1,text="IN PROGRESS   ", bg="Yellow",font=("Times New Roman", 10)).pack()
+     return "1"
 ####################################String_Matching############################################
 def BrowseFolderPath():
         print '***Select the Path for Synergy Data***'
@@ -47,8 +52,18 @@ def BrowseFolderPath():
         root.withdraw() #use to hide tkinter window
         currdir = os.getcwd()
         SynPath = tkFileDialog.askdirectory(parent=root, initialdir=currdir, title='Please Select the Path for Synergy Data')
+        
         if len(SynPath) > 0:
                 print "You have chosen: %s" % SynPath
+                run_but1=Button(window, text="        Run       ", bd=2,fg='Black',font=("Times New Roman Bold", 12), state=DISABLED)
+                run_but1.place(x=10, y=350+30)
+        else:
+                tkMessageBox.showinfo("Error"," No Folder is Selected")
+                empty = Label(window,text="Execution Status", font=("Times New Roman Bold", 12))
+                empty.place(x=10, y=220+50)
+                input_frame1 = Frame(window, width = 200, height = 22 , bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 1)
+                input_frame1.place(x=130, y=223+50)
+                w2 = Label(input_frame1,text="NOT STARTED", font=("Times New Roman", 10)).pack()                
         return SynPath
 ################################################################################
 # Function to return the list of file path
@@ -59,13 +74,19 @@ def GetListOfFilesFromFolder(FolderPath, FileTypeList):
                 for FileType in FileTypeList:
                         for root, dirs, files in os.walk(FolderPath):
                                 for f in files:
-                                        if 'Support_Files' not in root and 'Archive' not in root:
-                                                if f.endswith(FileType):
+                                     if 'Support_Files' not in root and 'Archive' not in root:   
+                                        if f.endswith('.C') or  f.endswith('.c'):
+                                            C_file_name = f.split('.')[0]
+                                            if C_file_name[-3:]== '_MT':
+                                                        FileNameList.append(os.path.join(root, f))
+                                        elif f.endswith(FileType):
                                                         FileNameList.append(os.path.join(root, f))
         except:
                 error_log_file.write('General Error\t[001]File name collection error!\n')
         return FileNameList
 
+################################################################################
+# Function to get the synergy version from java script
 ################################################################################
 def GetSynVer_java(filename):
     f=open(filename,"r")
@@ -83,11 +104,7 @@ def GetSynVer_java(filename):
     except:
             pass
 ################################################################################
-
-
-
-
-
+# Function to get the synergy version from bat script
 ################################################################################
 def GetSynVer_bat(filename):
     f=open(filename,"r")
@@ -105,11 +122,7 @@ def GetSynVer_bat(filename):
     except:
             pass
 ################################################################################
-
-
-
-
-
+# Function to get the synergy version from ice script
 ################################################################################
 def GetSynVer_ice(filename):
     f=open(filename,"r").read().splitlines();
@@ -123,18 +136,32 @@ def GetSynVer_ice(filename):
                     syn_line=line.split(':')
                     syn_version=syn_line[1].replace("\t","").replace("%","").replace("\n","").replace(" ","")\
                                  .replace("created_by","")
-
-
+                        
+                        
     try:
             return  float(syn_version)
     except:
             pass
 ################################################################################
-
-
-
-
-
+# Function to get the synergy version from C script
+################################################################################
+def GetSynVer_C(filename):
+    f=open(filename,"r")
+    syn_flag=0
+    syn_version=""
+    for line in f:
+        if (("SYNERGY" in line.upper() and "INFORMATION" in line.upper()) or "HISTORY DATA" in line.upper()):
+            syn_flag=1
+        if("%VERSION:" in line.upper() and syn_flag==1):
+            syn_version=line.replace("%version","").replace("*","").replace("\n","").replace("\r","")\
+                         .replace("%","").replace(" ","\t").replace("\t","").replace(":","")
+            syn_flag=2
+    try:
+            return  float(syn_version)
+    except:
+            pass
+################################################################################
+# Function to get the manual version from java script
 ################################################################################
 def GetManVer_java(filename):
         f=open(filename,"r")
@@ -147,10 +174,9 @@ def GetManVer_java(filename):
                 return float(man_version)
         except:
                 pass
-
-#################################################################################################################################
-
-
+       
+################################################################################
+# Function to get the manual version from bat script
 ################################################################################
 def GetManVer_bat(filename):
         f=open(filename,"r")
@@ -164,10 +190,10 @@ def GetManVer_bat(filename):
                 if " VER." in line.upper() or " VER " in line.upper() or "\tVER\t" in line.upper() \
                    or " VER\t" in line.upper() or "\tVER " in line.upper():
                         man_verflag=1
-
+                        
                 if (("SYNERGY" in line.upper() and "INFORMATION" in line.upper()) or "HISTORY DATA" in line.upper()):
                         man_verflag=man_verflag+1
-
+                        
                 if(man_verflag==1):
                         i=0
 
@@ -182,10 +208,43 @@ def GetManVer_bat(filename):
                 return max(verlist)
         except:
                 pass
+       
+################################################################################
+# Function to get the manual version from C script
+################################################################################
+def GetManVer_C(filename):
+        f=open(filename,"r")
+        man_verflag=0
+        man_version=""
+        countn=0
+        HistoryList=[]
+        HistoryLastLineList=[]
+        verlist=[]
+        for line in f:
+                if " VERSION." in line.upper() or " VERSION " in line.upper() or "\VERSION\t" in line.upper() \
+                   or " VERSION\t" in line.upper() or "\tVERSION " in line.upper():
+                        man_verflag=1
+                        
+                if (("SYNERGY" in line.upper() and "INFORMATION" in line.upper()) or "HISTORY DATA" in line.upper()):
+                        man_verflag=man_verflag+1
+                        
+                if(man_verflag==1):
+                        i=0
 
-#################################################################################################################################
-
-
+                        for entry in line.split(" "):
+                                if(i<7):
+                                        try:
+                                                verlist.append(float(entry))
+                                        except:
+                                                pass
+                                i=i+1
+        try:
+                return max(verlist)
+        except:
+                pass
+       
+################################################################################
+# Function to get the manual version from ice script
 ################################################################################
 def GetManVer_ice(filename):
         f=open(filename,"r").read().splitlines();
@@ -200,7 +259,7 @@ def GetManVer_ice(filename):
                 if " VER." in line.upper() or " VER " in line.upper() or "\tVER\t" in line.upper() \
                    or " VER\t" in line.upper() or "\tVER " in line.upper():
                         man_verflag=1
-
+                        
                 if (("SYNERGY" in line.upper() and "INFORMATION" in line.upper()) or "HISTORY DATA" in line.upper() or "HISTORY" in line.upper()):
                         man_verflag=2
                 if (author_flag==1 and man_verflag==2):
@@ -209,7 +268,7 @@ def GetManVer_ice(filename):
                                 verlist[1]=verlist[1].replace("\t","").replace("%","").replace("\n","").replace(" ","")\
                                              .replace("created_by","")
                                 type_flag=1
-
+                        
                 if(man_verflag==1):
                         type_flag=2
                         i=0
@@ -228,49 +287,43 @@ def GetManVer_ice(filename):
                         return max(verlist)
         except:
                 pass
-
-#################################################################################################################################
-
-
-
-#################################################################################################################################
+       
+################################################################################
+# Function to get the author name from java script
+################################################################################
 def GetAuthName_java(filename,ManualVer):
         return "Bite2SiteTranslator.java"
-
-
-
-
-
-#################################################################################################################################
-
-#################################################################################################################################
+              
+################################################################################
+# Function to get the author name from bat script
+################################################################################
 def GetAuthName_bat(filename,ManualVer):
         f=open(filename,"r")
         auth_flag=0
         author_names=[]
-
+        
         for line in f:
                 if " VER." in line.upper() or " VER " in line.upper() or "\tVER\t" in line.upper() \
                    or " VER\t" in line.upper() or "\tVER " in line.upper():
                         auth_flag=1
-
+                        
                 if (("SYNERGY" in line.upper() and "INFORMATION" in line.upper()) or "HISTORY DATA" in line.upper()):
                         auth_flag=auth_flag+1
                 if(auth_flag==1):
                         BlankLineflag=0
                         for i in range(0,8):
                                 try:
-
+                                        
                                         if(float(line[i])):
                                                 BlankLineflag=1
                                                 break
                                 except:
                                         pass
-
+                        
                         if(BlankLineflag==1):
-                                line=line.split("  ")
+                                line=line.split("  ")  
                                 templines=[]
-                                for entry in line:
+                                for entry in line:                                        
                                         if(entry!=""):
                                                 if(entry.upper()=="HISTORY"):
                                                         entry=entry.upper().replace("HISTORY","")
@@ -278,20 +331,20 @@ def GetAuthName_bat(filename,ManualVer):
                                                 templines.append(entryWithoutnum)
 
 
-
+            
 
                                 try:
-
+                                           
                                            if(len(str(templines[2]))>2):
                                                    author_names.append(templines[2])
                                            else:
-                                                  author_names.append(templines[1])
+                                                  author_names.append(templines[1]) 
 
-
-
+                                           
+                                        
                                 except:
                                         pass
-
+        
         try:
 
                 if(author_names[-1]=="" or len(str(author_names[-1]))<=2):
@@ -302,38 +355,38 @@ def GetAuthName_bat(filename,ManualVer):
                         return str(author_names[-1])
         except:
                 pass
-#################################################################################################################################
-
-
-#################################################################################################################################
-def GetAuthName_ice(filename,ManualVer):
+        
+################################################################################
+# Function to get the author name from C script
+################################################################################
+def GetAuthName_C(filename,ManualVer):
         f=open(filename,"r").read().splitlines();
         auth_flag=0
         author_names=[]
-
+        
         for line in f:
-                if " VER." in line.upper() or " VER " in line.upper() or "\tVER\t" in line.upper() \
-                   or " VER\t" in line.upper() or "\tVER " in line.upper():
+                if " VERSION." in line.upper() or " VERSION " in line.upper() or "\tVERSION\t" in line.upper() \
+                   or " VERSION\t" in line.upper() or "\tVERSION " in line.upper():
                         auth_flag=1
-
+                        
                 if (("SYNERGY" in line.upper() and "INFORMATION" in line.upper()) or "HISTORY DATA" in line.upper()or "HISTORY" in line.upper()):
                         auth_flag=2
                 if(auth_flag==1):
                         BlankLineflag=0
                         for i in range(0,8):
                                 try:
-
+                                        
                                         if((line[i])):
                                                 BlankLineflag=1
                                                 break
-
+                                       
                                 except:
                                         pass
-
+                        
                         if(BlankLineflag==1):
-                                line=line.split("  ")
+                                line=line.split("  ")  
                                 templines=[]
-                                for entry in line:
+                                for entry in line:                                        
                                         if(entry!=""):
                                                 if(entry.upper()=="HISTORY"):
                                                         entry=entry.upper().replace("HISTORY","")
@@ -341,20 +394,18 @@ def GetAuthName_ice(filename,ManualVer):
                                                 templines.append(entryWithoutnum)
 
 
-
-
                                 try:
-
-                                           if(len(str(templines[2]))>2):
-                                                   author_names.append(templines[2])
+                                           
+                                           if(len(str(templines[3]))>2):
+                                                   author_names.append(templines[3])
                                            else:
-                                                  author_names.append(templines[1])
+                                                  author_names.append(templines[1]) 
+                                           
 
-
-
+                                        
                                 except:
                                         pass
-
+        
         try:
 
                 if(author_names[-1]=="" or len(str(author_names[-1]))<=2):
@@ -365,9 +416,10 @@ def GetAuthName_ice(filename,ManualVer):
                         return str(author_names[-1])
         except:
                 pass
-#################################################################################################################################
-
-#################################################################################################################################
+        
+################################################################################
+# Function to get the author name from ice script
+################################################################################
 def GetAuthName_ice_t1(filename):
     Auth_name=""
     f=open(filename,"r").read().splitlines();
@@ -380,11 +432,11 @@ def GetAuthName_ice_t1(filename):
             pass
 
 
-#################################################################################################################################
-
-#################################################################################################################################
+################################################################################
+# Function to return the java result file
+################################################################################
 def GetResult_java(filename):
-
+      
         res=""
         f=open(filename,"r")
         for line in f:
@@ -392,15 +444,9 @@ def GetResult_java(filename):
                         res=line.replace("Overall Test Script Status","").replace("=>","").replace(" ","").replace("\t","").replace("\n","").replace("ED","")
         return res.title()
 
-
-
-
-
-
-#################################################################################################################################
-
-
-#################################################################################################################################
+################################################################################
+# Function to return the bat result file
+################################################################################
 def GetResult_bat(filename):
         failed=1
         res=""
@@ -409,20 +455,27 @@ def GetResult_bat(filename):
             if('#TEST FAILED#' in line.upper()):
                 failed=0
                 break
-        if failed==0:
+        if failed==0:  
             res= 'Fail'
-        else:
+        else:           
             res= 'Pass'
         return res
 
+################################################################################
+# Function to return the C result file
+################################################################################
+def GetResult_C(filename):
+        failed=1
+        res=""
+        f=open(filename,"r")
+        for line in f:
+            if('OVERALL TEST SCRIPT STATUS' in line.upper()):
+                res=line.replace("Overall Test Script Status","").replace("=>","").replace(" ","").replace("\t","").replace("\n","").replace("ED","")
+        return res.title()
 
-
-
-
-
-#################################################################################################################################
-
-#################################################################################################################################
+################################################################################
+# Function to return the ice result file
+################################################################################
 def GetResult_ice(filename):
         res=""
         f=open(filename,"r").read().splitlines();
@@ -431,40 +484,40 @@ def GetResult_ice(filename):
                         res=line.replace("$5","").replace("=","").replace(" ","").replace("\"","").replace("\n","").replace("$4","").replace("$8","")
         return res.title()
 
-
-#################################################################################################################################
-
-#################################################################################################################################
+                
+################################################################################
+# Function to return the SVCPlist
+################################################################################
 def GetSVCPNo(filename):
         f=open(filename,"r").read().splitlines();
-        SVCPlist=[]
+        SVCPlist=[]       
         for line in f:
                if "Test Case Identifier" in line:
                        line=line.replace("Test Case Identifier","").replace("#","").replace(":","").replace("\t"," ")\
                        .replace(" ","").replace("*","")
                        SVCPlist.append(line)
         return SVCPlist
-
-#################################################################################################################################
-
-#################################################################################################################################
+        
+################################################################################
+# Function to return the TPSID
+################################################################################
 def GetTPSID(entry):
         try:
                 svcp_col=0
                 tps_col=0
-                for col in range(1,sheet_mainapp.max_columns+1):
-                        if("ID" in str(sheet_mainapp.cell(row=1,columns=col).value)):
+                for col in range(0,sheet_mainapp.ncols):
+                        if("ID" in sheet_mainapp.cell_value(0,col)):
                                 tps_col=col
-
-                        if("Out-links at depth 1" in str(sheet_mainapp.cell(row=1,columns=col).value)):
+                              
+                        if("Out-links at depth 1" in sheet_mainapp.cell_value(0,col)):
                                 svcp_col=col
-
-
+                                
+                        
                 if("," in entry):
                         entry_list=entry.split(",")
                         tpsList=[]
                         for entry in entry_list:
-                                for row in range(1,sheet_mainapp.max_row+1):
+                                for row in range(0,sheet_mainapp.nrows):
                                         if(str(entry).replace("\n","").replace("\t","").replace("\r\n","") in "".join(sheet_mainapp.cell_value(row,svcp_col))):
                                                 tpsList.append(sheet_mainapp.cell_value(row,tps_col)+"\n")
                         try:
@@ -472,22 +525,22 @@ def GetTPSID(entry):
                         except:
                                 pass
                 else:
-                        for row in range(1,sheet_mainapp.max_row+1):
+                        for row in range(0,sheet_mainapp.nrows):
                                 if(str(entry).replace("\n","").replace("\t","").replace("\r\n","") in "".join(sheet_mainapp.cell_value(row,svcp_col))):
                                         return (sheet_mainapp.cell_value(row,tps_col))
-        except:
-
+        except:                
+                
                 error_log_file.write("TPS_SVCP_TR.xlsx is missing in the synergy folder\n")
-
+                
                 tkMessageBox.showinfo("Error","TPS_SVCP_TR.xlsx is missing in the synergy folder")
                 window.destroy()
-
+                       
                 sleep(10)
                 sys.exit()
-#################################################################################################################################
-
-#################################################################################################################################
-
+                
+################################################################################
+# Function to return the TCid bat
+################################################################################
 def GetTCid_bat(filename):
         TC_ID=""
         flag=0
@@ -502,12 +555,12 @@ def GetTCid_bat(filename):
                         temp=line.replace("End of ","").replace("-","").replace("\n","")
                         TC_ID=TC_ID+temp+" \r\n"
 
-
+                
         return TC_ID
 
-#################################################################################################################################
-
-#################################################################################################################################
+################################################################################
+# Function to return the TCid java
+################################################################################
 
 def GetTCid_java(filename):
         TC_ID=""
@@ -520,21 +573,19 @@ def GetTCid_java(filename):
                         if(temp[0] not in tcId):
                                 TC_ID=TC_ID+temp[0]+" \r\n"
                         tcId.append(temp[0])
-
-
+        
+        
         return TC_ID
 
-#################################################################################################################################
-
-#################################################################################################################################
-
-
+################################################################################
+# Function to return the TCid ice
+################################################################################
 def GetTCid_ice(filename):
         f=open(filename,"r").read().splitlines();
-        tcid=""
+        tcid=""  
         for line in f:
             if("#**  TEST PROCEDURE NUMBER" in line.upper()):
-
+        
                 tcid=line.replace("Test Procedure Number","").replace("\t","").replace(":","").replace(" ","").replace("\n","").replace("#","").replace("*","")
                 break
             if("#**  TEST CASE" in line.upper() and "BASELINE"  not in line.upper()):
@@ -542,46 +593,44 @@ def GetTCid_ice(filename):
                 break
         return tcid
 
-
-
-#################################################################################################################################
-
-#################################################################################################################################
+################################################################################
+# Function to get the SWRD and SWDD list from mainappsheet
+################################################################################
 def GetSWRDandSWDD(entry):
 
         try:
                 svcp_col=0
                 swrd_col=0
-                for col in range(1,sheet_mainapp_1.max_column+1):
-                        if("ID" in str(sheet_mainapp_1.cell(row=0,column=col).value)):
+                for col in range(0,sheet_mainapp_1.ncols):
+                        if("ID" in sheet_mainapp_1.cell_value(0,col)):
                                 svcp_col=col
-                        if("Out-links at depth 1" in str(sheet_mainapp_1.cell(row=0,column=col).value)):
+                        if("Out-links at depth 1" in sheet_mainapp_1.cell_value(0,col)):
                                 swrd_col=col
 
                 mlct_col=0
                 swrd_mlct_col=0
-                for col in range(1,sheet_mainapp_2.max_column+1):
-                        if("Out-links at depth 1" in str(sheet_mainapp_2.cell(row=0,column=col).value)):
+                for col in range(0,sheet_mainapp_2.ncols):
+                        if("Out-links at depth 1" in sheet_mainapp_2.cell_value(0,col)):
                                 mlct_col=col
-                        if("Out-links at depth 2" in str(sheet_mainapp_2.cell(row=0,column=col).value)):
+                        if("Out-links at depth 2" in sheet_mainapp_2.cell_value(0,col)):
                                 swrd_mlct_col=col
-
+                                
                 if("," in entry):
                         entry_list=entry.split(",")
                         swrdandswddList=[]
                         for entry in entry_list:
-                                for row in range(1,sheet_mainapp_1.max_row+1):
+                                for row in range(0,sheet_mainapp_1.nrows):
                                         if(str(entry).replace("\n","").replace("\t","").replace("\r\n","") in "".join(sheet_mainapp_1.cell_value(row,svcp_col))):
                                                 swrdandswddList.append(sheet_mainapp_1.cell_value(row,swrd_col)+"\n")
-                                for row in range(1,sheet_mainapp_2.max_row+1):
+                                for row in range(0,sheet_mainapp_2.nrows):
                                         if(str(entry).replace("\n","").replace("\t","").replace("\r\n","") in "".join(sheet_mainapp_2.cell_value(row,mlct_col))):
                                                 swrdandswddList.append(sheet_mainapp_2.cell_value(row,swrd_mlct_col)+"\n")
                         return (swrdandswddList)
                 else:
-                        for row in range(1,sheet_mainapp_1.max_row+1):
+                        for row in range(0,sheet_mainapp_1.nrows):
                                 if(str(entry).replace("\n","").replace("\t","").replace("\r\n","") in "".join(sheet_mainapp_1.cell_value(row,svcp_col))):
                                         return (sheet_mainapp_1.cell_value(row,swrd_col))
-                        for row in range(1,sheet_mainapp_2.max_row+1):
+                        for row in range(0,sheet_mainapp_2.nrows):
                                 if(str(entry).replace("\n","").replace("\t","").replace("\r\n","") in "".join(sheet_mainapp_2.cell_value(row,mlct_col))):
                                         return (sheet_mainapp_2.cell_value(row,swrd_mlct_col))
         except:
@@ -590,29 +639,34 @@ def GetSWRDandSWDD(entry):
                 window.destroy()
                 sleep(10)
                 sys.exit()
-#################################################################################################################################
+                
+################################################################################
+# Function to get the SVCP list from mainappsheet
+################################################################################
 def GetSVCPList():
         try:
                 svcp_col=0
                 swrd_col=0
-                for col in range(1,sheet_mainapp_1.max_column):
-                        if("ID" in str(sheet_mainapp_1.cell(row=0,column=col).value)):
+                for col in range(0,sheet_mainapp_1.ncols):
+                        if("ID" in sheet_mainapp_1.cell_value(0,col)):
                                 svcp_col=col
-                        if("DS10793/327" in str(sheet_mainapp_1.cell(row=0,column=col).value)):
+                        if("DS10793/327" in sheet_mainapp_1.cell_value(0,col)):
                                 swrd_col=col
-
-                for i in range(sheet_mainapp_1.max_row):
-                       if "Objective:" in str(sheet_mainapp_1.cell(i, swrd_col).value) or "Objective_" in str(sheet_mainapp_1.cell(i, swrd_col).value) or "To verify" in str(sheet_mainapp_1.cell(i, swrd_col).value)\
-                          or "To Verify" in sheet_mainapp_1.cell_value(i, swrd_col):
-                                  SVCP_List.append((sheet_mainapp_1.cell(i, svcp_col).value))
+                                
+                for i in range(sheet_mainapp_1.nrows):
+                       if "Objective:" in sheet_mainapp_1.cell_value(i, swrd_col) or "Objective_" in sheet_mainapp_1.cell_value(i, swrd_col) or "To verify" in sheet_mainapp_1.cell_value(i, swrd_col)\
+                          or "To Verify" in sheet_mainapp_1.cell_value(i, swrd_col): 
+                                  SVCP_List.append((sheet_mainapp_1.cell_value(i, svcp_col)))
         except:
                 error_log_file.write("Main_app_SVCP_SWRD_SWDD.xlsx is missing in the synergy folder\n")
                 tkMessageBox.showinfo("Error","Main_app_SVCP_SWRD_SWDD.xlsx is missing in the synergy folde")
                 window.destroy()
                 sleep(10)
                 sys.exit()
-
-#################################################################################################################################
+        
+################################################################################
+# Function to get the testscript name from the result file
+################################################################################
 
 def GetResTestScript(filename):
         listts=""
@@ -640,19 +694,19 @@ def GetResTestScript(filename):
                         break
                 if("  TEST FILE NAME    =>" in line.upper()):
                         listts=line.replace("  Test File Name    =>","").replace("\n","").replace("\t","").replace(" ","").replace("TestfileName:","")
-
+                                             
         return listts
-#################################################################################################################################
 
-
-#################################################################################################################################
+################################################################################
+# Function to get the testscript version from the result file
+################################################################################
 def GetResultTestScriptVersion(filename):
     listsv=""
     f=open(filename,"r")
-
-
+    
+   
     for line in f:
-
+        
         if("*** TEST FILE VERSION" in line.upper()):
                 listsv=line.replace("*** Test file version","").replace("\t","").replace(":","").replace(" ","").replace("\n","")
                 break
@@ -662,12 +716,12 @@ def GetResultTestScriptVersion(filename):
         if("TEST FILE VERSION" in line.upper()):
                 listsv=line.replace("Test File Version","").replace("\t","").replace("=>","").replace(" ","").replace("\n","")
                 break
-
+                
     try:
             return  float(listsv)
     except:
             pass
-
+        
 
 
 #################################################################################################################################
@@ -702,7 +756,7 @@ def Reverse_reading(file,pattern):
         if pattern in x:
             x = x.split(":")
             x = x[0].replace("TC","")
-            print x
+           # print x
             x = int(x)
             break
 
@@ -714,6 +768,10 @@ def GetScriptName(res_name):
         script_name=""
         if(res_name[-6:]=="_SPDA1" or res_name[-6:]=="_SPDA2"):
                 res_name=res_name[:-6]
+        if(res_name[-7:]=="_TARGET"):
+                res_name=res_name[:-7]
+        if(res_name[-5:]=="_HOST"):
+                res_name=res_name[:-5]
         res_name=res_name+"."
         for file_path in MasterFileNameList:
                 if(res_name in file_path):
@@ -755,9 +813,14 @@ def month_string_to_number(string):
         out = m[s]
         return out
     except:
-        print(string +" Is not a month")
+        error_log_file.write(string +" Is not a month\n")
+        pass
 
-def Time_Stamp(script,result):
+
+################################################################################
+# Function to validate the time stamp b/w script and result file
+################################################################################
+def Time_Stamp(script,result):      
  S_Date_Time=""
  R_Date_Time=""
  syn_Res=[]
@@ -767,29 +830,35 @@ def Time_Stamp(script,result):
  Script_file_path = open(script,'r')
  Result_file_path = open(result,'r')
  if(script.split(".")[-1] == "bat" ) or (script.split(".")[-1] == "ice" ) or (script.split(".")[-1] == "java" ) or (script.split(".")[-1] == "c" ):
-  for line in Script_file_path:
+  for line in Script_file_path: 
     if ("modify" in line.lower()):
       S_Date_Time=line.replace("%modify_time:","").replace("%","").replace("#","").replace("*","").strip()
       S_Date_Time =  S_Date_Time.replace ("  "," ")
       syn_Script= S_Date_Time.split(" ")
  if(result.split(".")[-1] =="res"):
   for line in Result_file_path:
-    if ("Test Date and Time" in line):
+    if ("Test Date and Time" in line): 
       R_Date_Time=line.replace("Test Date and Time","").replace("%","").replace(":"," ").replace("\n", "").strip()
       R_Date_Time = R_Date_Time.replace ("  "," ")
       syn_Res= R_Date_Time.split(" ")
 
-  if len (syn_Res)< 9 or len(syn_Script)< 5:
+  if len (syn_Res)< 8 or len(syn_Script)< 5:
     return "Time stamp is mismatching"
 
- if (syn_Res[8]==syn_Script[4]):
+  if 'PM' in syn_Res[6]:
+      syn_Res[3] = int (syn_Res[3])+12
+
+  if 'PM' in syn_Res[6]:
+    syn_Res.remove('PM')
+  elif 'AM' in syn_Res[6]: 
+    syn_Res.remove('AM')
+    
+ if (syn_Res[7]==syn_Script[4]):
   if (month_string_to_number(syn_Res[1])==month_string_to_number(syn_Script[1])):
-
+   
     if int (syn_Res[2])==int (syn_Script[2]):
-
-       Time_Script =syn_Script[3].split(":")
-       if 'PM' in syn_Res[6]:
-          syn_Res[3] = int (syn_Res[3])+12
+     
+       Time_Script =syn_Script[3].split(":")   
        if int(syn_Res[3]) == int (Time_Script[0]):
           if int(syn_Res[4]) == int (Time_Script[1]):
             if int(syn_Res[5]) >= int (Time_Script[2]):
@@ -811,8 +880,8 @@ def Time_Stamp(script,result):
   elif (month_string_to_number(syn_Res[1])> month_string_to_number(syn_Script[1])):
     return "Time stamp is matching"
   else:
-    return "Time stamp is mismatching"
- elif (syn_Res[8]>syn_Script[4]):
+    return "Time stamp is mismatching"             
+ elif (syn_Res[7]>syn_Script[4]):
   return "Time stamp is matching"
  else:
   return "Time stamp is mismatching"
@@ -821,7 +890,7 @@ def Time_Stamp(script,result):
 
 def Checklist(entry_list):
         start_time = time.time()
-
+        
         flag=0
 
 #************************************************************
@@ -841,13 +910,13 @@ def Checklist(entry_list):
 #************************************************************/
 
 
-
-
+        
+        
 # r=root, d=directories, f = files
         for r, d, f in os.walk(Synergy_path):
           if ("Archive" not in r):
             for file in f:
-
+              
                 flag=0
                 if ".xlsm" in file and ("STS" in file or "STC" in file or "STR" in file):
                     temp = file
@@ -858,14 +927,14 @@ def Checklist(entry_list):
                         wb_obj = openpyxl.load_workbook(filename = file, read_only = True, keep_vba = False)
                         sheet_obj = wb_obj['Review Tracker']
                         #print file
-
+                        
                         row = 1 #initialize the row value to 1 for each excel file
                         SVCP_ID_CELL = sheet_obj.cell(row=row, column=2)
                     except:
                         flag=1
                         error_log_file.write("No Review Tracker tab in file: %s \\ File  IO error\n" % (file)) # FILE IO error / Review Tracker sheet not found
                     if(flag==0):
-
+                           
                         while SVCP_ID_CELL.value:   # read each row value /SVCP ID/SCRIPT name/RESULT name
                             # print i
                             SVCP_ID_CELL = sheet_obj.cell(row=row, column=2)
@@ -873,35 +942,35 @@ def Checklist(entry_list):
 
                             Result_Version_ID_CELL = sheet_obj.cell(row=row, column=3)
 
-
+                            
                             for entry in entry_list:
-
+                                    
                                     if entry[0] == SVCP_ID_CELL.value and Final_Revision == Final_Revision_ID_CELL.value:
-
+                                             
                                             entry[3]= entry[3]+file.split("\\")[-1] + "  SVCP version: "+str(Final_Revision_ID_CELL.value)+"\n"
                                     elif entry[0] == SVCP_ID_CELL.value and Final_Revision != Final_Revision_ID_CELL.value:
-
+                                           
                                             entry[3]= entry[3] + file.split("\\")[-1] + "  SVCP version is not matching: "+str(Final_Revision_ID_CELL.value)+"\n"
 
-
+                            
                                     if entry[1] == SVCP_ID_CELL.value and entry[6] == Final_Revision_ID_CELL.value:
-
+                                            
                                             entry[4]= entry[4]+ file.split("\\")[-1] + "  Script version: "+str(Final_Revision_ID_CELL.value)+"\n"
                                     elif entry[1] == SVCP_ID_CELL.value and entry[6] != Final_Revision_ID_CELL.value:
-
+                                            
                                             entry[4]= entry[4]+ file.split("\\")[-1] + "  Script version is not matching: "+str(Final_Revision_ID_CELL.value)+"\n"
 
-
+        
                                     if entry[2] == SVCP_ID_CELL.value and entry[7] == Result_Version_ID_CELL.value:
-
+                                             
                                             entry[5]= entry[5]+ file.split("\\")[-1] + "  Result version: "+str(Result_Version_ID_CELL.value)+"\n"
                                     elif entry[2] == SVCP_ID_CELL.value and entry[7] != Result_Version_ID_CELL.value:
-
+                                             
                                             entry[5]= entry[5]+file.split("\\")[-1] + "  Result version is not matching: "+str(Result_Version_ID_CELL.value)+"\n"
 
                             row += 1 #increment the row value of column 2
                         wb_obj.close()
-
+                    
 
         for entry in entry_list:
                 if(entry[3]==" "):
@@ -911,7 +980,7 @@ def Checklist(entry_list):
                 if(entry[5]==" "):
                         entry[5]="File Not Found"
         print("--- %s seconds ---" % (time.time() - start_time))
-
+         
         return entry_list
 
 
@@ -919,9 +988,9 @@ def Checklist(entry_list):
 def GetResult_version(filename):
         f=open(filename,"r")
         ver=0
-
+   
         for line in f:
-
+        
                 if("%version" in line):
                         try:
                                 ver=int(line.split(":")[-1].replace("%","").strip())
@@ -931,15 +1000,17 @@ def GetResult_version(filename):
         return ver
 
 
-def RemoveDuplicate(duplicate):
-    final_list = []
-    for num in duplicate:
-        if num not in final_list:
-            final_list.append(num)
+def RemoveDuplicate(duplicate): 
+    final_list = [] 
+    for num in duplicate: 
+        if num not in final_list: 
+            final_list.append(num) 
     return final_list
 
 
-#################################################################################################################################
+################################################################################
+# Function to get SVCP ids from the manual analysis document
+################################################################################
 def Docx_GetSVCPNo(filename):
         document = Document(filename)
         SVCPlist=[]
@@ -957,11 +1028,9 @@ def Docx_GetSVCPNo(filename):
                 SVCPlist=[" "]
                 return SVCPlist, docx_svcp_flag
 
-#################################################################################################################################
-
-
-#################################################################################################################################
-
+################################################################################
+# Function to get SWRD and SWDD ids from the manual analysis document
+################################################################################
 def Docx_GetSWRDandSWDD_1(filename):
         document = Document(filename)
         swrdandswddList=[]
@@ -985,16 +1054,9 @@ def Docx_GetSWRDandSWDD_1(filename):
                         swrdandswddList.append(lines+"  ")
         return swrdandswddList
 
-
-
-
-#################################################################################################################################
-
-
-#################################################################################################################################
-
-
-
+################################################################################
+# Function to get author name from the manual analysis document
+################################################################################
 def Docx_GetAuthor(filename):
         document = Document(filename)
         author=""
@@ -1009,13 +1071,9 @@ def Docx_GetAuthor(filename):
 
 
 
-#################################################################################################################################
-
-
-#################################################################################################################################
-
-
-
+################################################################################
+# Function to get result file version from the manual analysis result file
+################################################################################
 def Docx_GetResultVersion(filename):
         document = Document(filename)
         ver=""
@@ -1026,16 +1084,17 @@ def Docx_GetResultVersion(filename):
                                 lines=line.text.split(":")
                                 ver=lines[1].replace("\n"," ").replace("\r"," ").replace(" ","")
                                 break
-        return int(ver)
+
+        try:     		  
+           return int(ver)
+        except:
+           return ver   
 
 
 
-#################################################################################################################################
-
-#################################################################################################################################
-
-
-
+################################################################################
+# Function to get result TC count from the manual analysis file
+################################################################################
 def Docx_GetResultTCcount(filename):
         document = Document(filename)
         count=0
@@ -1064,13 +1123,9 @@ def Docx_GetResultTCcount(filename):
 
 
 
-#################################################################################################################################
-
-
-#################################################################################################################################
-
-
-
+################################################################################
+# Function to get result TC count from the manual analysis result file
+################################################################################
 def Docx_GetResultTCID(filename):
         document = Document(filename)
         tcList=[]
@@ -1094,9 +1149,9 @@ def Docx_GetResultTCID(filename):
 
 
 
-#################################################################################################################################
-
-#################################################################################################################################
+################################################################################
+# Function to get result status from the manual analysis result file
+################################################################################
 def Docx_GetResult(filename):
 
         res=""
@@ -1135,13 +1190,14 @@ def Docx_GetResult(filename):
 
 
 
-#################################################################################################################################
-
-
-
-
+################################################################################
+# Function to create the consoldate sheet
 ################################################################################
 def ConsolidateData(ExcelFileList):
+    global Total_Num_Testscript
+    global Total_Num_Result                
+    Total_Num_Testscript = []
+    Total_Num_Result = []
     wb=xlwt.Workbook()
     sheet1=wb.add_sheet("Analysis")
  
@@ -1172,7 +1228,7 @@ def ConsolidateData(ExcelFileList):
     sheet1.write(0,12,"SCRIPT VERSION IN RESULT FILE")
     sheet1.write(0,13,"RESULT STATUS")
     sheet1.write(0,14,"TC ID")
-    sheet1.write(0,15,"Test Script Case Count")
+    sheet1.write(0,15,"Test Script Case Count")    
     sheet1.write(0,16,"Test Result Case Count")
     sheet1.write(0,17,"Test Case Count match?")
     sheet1.write(0,18,"Synergy version of script and result match?")
@@ -1182,8 +1238,8 @@ def ConsolidateData(ExcelFileList):
     sheet1.write(0,22,"Test Result Checklist")
 
     i=1
-
-
+  
+    
 
 
     for filename_res in ResultFileList:
@@ -1202,28 +1258,40 @@ def ConsolidateData(ExcelFileList):
                 #Function calls for .java
                 if(filename.endswith(".java")):
                         ScriptSynVer=GetSynVer_java(filename)
-                        ManualVer=GetManVer_java(filename)
+                        ManualVer='AUTO'
                         SVCPNo=[' ']
                         Test_script_case_count = String_Matching(filename,'Test Case:')
                         AuthName=GetAuthName_java(filename,ManualVer)
-                #Function calls for .bat
+                        Total_Num_Result.append(FileWithoutPath)
+                #Function calls for .bat    
                 elif(filename.endswith(".bat")):
                         if(filename.split(FileWithoutPath)[0].find('\\SSIT') == -1):
                                 ScriptSynVer=GetSynVer_bat(filename)
                                 SVCPNo=GetSVCPNo(filename)
                                 Test_script_case_count = String_Matching(filename,'Test Procedure Number')
                                 ManualVer=GetManVer_bat(filename)
-                                AuthName=[element+" " for element in GetAuthName_bat(filename,ManualVer).split(" ")[0:3]]
-                #Function calls for .ice
+                                try:  
+                                    AuthName=[element+" " for element in GetAuthName_bat(filename,ManualVer).split(" ")[0:3]]
+                                except:
+                                    pass     
+                                Total_Num_Result.append(FileWithoutPath)
+                #Function calls for .ice    
                 elif(filename.endswith(".ice")):
                         ScriptSynVer=GetSynVer_ice(filename)
                         Test_script_case_count = String_Matching(filename,'Test Procedure Number')
                         ManualVer=GetManVer_ice(filename)
                         SVCPNo=GetSVCPNo(filename)
+                        Total_Num_Result.append(FileWithoutPath)                        
                         if(type_flag==1):
+                              try:  
                                 AuthName=GetAuthName_ice_t1(filename)
+                              except:
+                                 pass       
                         elif(type_flag==2):
-                                AuthName=[element+" " for element in GetAuthName_ice(filename,ManualVer).split(" ")[0:3]]
+                               try:    
+                                  AuthName=[element+" " for element in GetAuthName_ice(filename,ManualVer).split(" ")[0:3]]
+                               except:
+                                  pass
                         else:
                                 AuthName=" "
                 #Function calls for .docx
@@ -1232,7 +1300,20 @@ def ConsolidateData(ExcelFileList):
                         SVCPNo,docx_svcp_flag=Docx_GetSVCPNo(filename)
                         Author=Docx_GetAuthor(filename)
                         Test_script_case_count=Docx_GetResultTCcount(filename)
-
+                elif(filename.endswith(".c")):        
+                       filename_c=filename.replace(".c","")
+                       if(filename_c[-3:]=="_MT"):
+                                ScriptSynVer=GetSynVer_C(filename)
+                                SVCPNo=GetSVCPNo(filename)
+                                Test_script_case_count = String_Matching(filename,'Test Procedure Number')
+                                ManualVer=GetManVer_C(filename)
+                                try:
+                                    AuthName=[element+" " for element in GetAuthName_C(filename,ManualVer).split(" ")[0:3]]
+                                except:
+                                    pass    
+                                Total_Num_Result.append(FileWithoutPath)
+                                
+                          
                         
                 if ((Entered_docx==0 and docx_svcp_flag==0) or (Entered_docx==1 and docx_svcp_flag==1)):
                     for entry in SVCPNo:
@@ -1285,6 +1366,12 @@ def ConsolidateData(ExcelFileList):
                                 result_version=Docx_GetResultVersion(filename_res)
                                 Test_Result_case_count=Docx_GetResultTCcount(filename_res)
                                 tc_id=Docx_GetResultTCID(filename_res)
+
+                            elif(ResTestScriptVersion.find('.c') != -1):
+                                result=GetResult_C(filename_res)
+                                Test_Result_case_count = String_Matching(filename_res,'Test Case ID')
+                                result_version=GetResult_version(filename_res)
+                                tc_id=GetTCid_bat(filename_res)
                                 
                             
                             sheet1.write(i,9,FileWithoutPath_res)
@@ -1336,56 +1423,55 @@ def ConsolidateData(ExcelFileList):
                         else:
                              sheet1.write(i,17,"Count Mismatch")
                         i=i+1
-                        
-    workbook_name='Inter'+date_time+'.xls'
+                       
+    workbook_name='Inter'+date_time+'.xls'               
     wb.save(workbook_name)
 
-    wb_1=in_wb = openpyxl.load_workbook(workbook_name)
-    sheet_wb= wb_1.worksheets[0]
-    for i in range (1,sheet_wb.max_row):
-            file_list.append([sheet_wb.cell(row=i,column=6).value,\
-                              sheet_wb.cell(row=i,column=0).value,sheet_wb.cell(row=i,column=9).value,\
-                              " "," "," ",sheet_wb.cell(row=i,column=2).value,sheet_wb.cell(row=i,column=11).value])
-            if("," in sheet_wb.cell(row=i,column=6).value):
-                    svcp=sheet_wb.cell(row=i,column=6).value.split(",")
+    wb_1=in_wb = xlrd.open_workbook(workbook_name)
+    sheet_wb= wb_1.sheet_by_index(0)
+    for i in range (1,sheet_wb.nrows):
+            file_list.append([sheet_wb.cell(i,6).value,\
+                              sheet_wb.cell(i,0).value,sheet_wb.cell(i,9).value,\
+                              " "," "," ",sheet_wb.cell(i,2).value,sheet_wb.cell(i,11).value])
+            if("," in sheet_wb.cell(i,6).value):
+                    svcp=sheet_wb.cell(i,6).value.split(",")
                     for sv in svcp:
                             svcp_in_files.append(sv)
             else:
-                    svcp_in_files.append(sheet_wb.cell(row=i,column=6).value)
+                    svcp_in_files.append(sheet_wb.cell(i,6).value)
 
-            Script_Count.append([sheet_wb.cell(row=i,column=0).value])
-            if(".docx" not in sheet_wb.cell(i,0).value):
-                    Script_Count_without_docx.append([sheet_wb.cell(row=i,column=0).value])
+            Script_Count.append([sheet_wb.cell(i,0).value])
+            if(".docx" not in sheet_wb.cell(i,0).value and ".java" not in sheet_wb.cell(i,0).value ):
+                    Script_Count_without_docx.append([sheet_wb.cell(i,0).value])
                     
-            Results_Count.append([sheet_wb.cell(row=i,column=9).value])            
-            if(".docx" not in sheet_wb.cell(row=i,column=9).value):
-                    Results_Count_without_docx.append([sheet_wb.cell(row=i,column=0).value])
+            Results_Count.append([sheet_wb.cell(i,9).value])            
+            if(".docx" not in sheet_wb.cell(i,9).value):
+                    Results_Count_without_docx.append([sheet_wb.cell(i,0).value])
                     
-            SVCP_Count.append( sheet_wb.cell(row=i,column=6).value)
-            if("Version mismatch" in sheet_wb.cell(row=i,column=4).value):
-                    Script_Mismatch.append([sheet_wb.cell(row=i,column=0).value])
-            if("Count Mismatch" in sheet_wb.cell(row=i,column=17).value ):
-                    Test_Case_Mismatch.append([sheet_wb.cell(row=i,column=9).value])
-            if("Version mismatch" in sheet_wb.cell(row=i,column=18).value ):
-                    Syn_Result_TestScript.append([sheet_wb.cell(row=i,column=9).value])
-            if("Time stamp is mismatching" in sheet_wb.cell(row=i,column=19).value ):
-                    Time_Stamp_Mismatch.append([sheet_wb.cell(row=i,column=9).value])
-            if("ID"==sheet_wb.cell(i,7).value or sheet_wb.cell(row=i,column=7).value == ''):
-                    TPS_list.append( sheet_wb.cell(row=i,column=6).value)
-
-
+            SVCP_Count.append( sheet_wb.cell(i,6).value)
+            if("Version mismatch" in sheet_wb.cell(i,4).value and (".docx" not in sheet_wb.cell(i,0).value and ".java" not in sheet_wb.cell(i,0).value)):
+                    Script_Mismatch.append([sheet_wb.cell(i,0).value]) 
+            if("Count Mismatch" in sheet_wb.cell(i,17).value ):
+                    Test_Case_Mismatch.append([sheet_wb.cell(i,0).value])
+            if("Version mismatch" in sheet_wb.cell(i,18).value ):
+                    Syn_Result_TestScript.append([sheet_wb.cell(i,0).value])
+            if("Time stamp is mismatching" in sheet_wb.cell(i,19).value ):
+                    Time_Stamp_Mismatch.append([sheet_wb.cell(i,0).value])
+            if("ID"==sheet_wb.cell(i,7).value or sheet_wb.cell(i,7).value == ''):
+                    TPS_list.append( sheet_wb.cell(i,6).value)
+                        
     wb_1.release_resources()
     del wb_1
-
-
-
+    
     file_list_with_checklist=Checklist(file_list)
 
     wb_3= open_workbook(workbook_name)
     wb_2 = copy(wb_3)
     sheet_2=wb_2.add_sheet("Blank SVCP IDs")
+    sheet_3=wb_2.add_sheet("Result files missing")
     sheet_2.write(0,0,"Script SVCP IDs not found in Excel")
     sheet_2.write(0,1,"Excel SVCP IDs not found in Script")
+    sheet_3.write(0,1,"Result files not found")
     r=1
     for f in file_list_with_checklist:
             if(f[3]=="File Not Found"):
@@ -1394,8 +1480,8 @@ def ConsolidateData(ExcelFileList):
                     Not_Found_STS.append(f[1])
             if(f[5]=="File Not Found"):
                     Not_Found_STR.append(f[2])
-
-
+            
+                    
             wb_2.get_sheet(0).write(r,20,f[3])
             wb_2.get_sheet(0).write(r,21,f[4])
             wb_2.get_sheet(0).write(r,22,f[5])
@@ -1408,46 +1494,50 @@ def ConsolidateData(ExcelFileList):
                     SVCP_not_in_excel_1.append(s)
                     r=r+1
     SVCP_not_in_excel_1=RemoveDuplicate(SVCP_not_in_excel_1)
-    SVCP_not_in_excel_c=len(SVCP_not_in_excel_1)
+    SVCP_not_in_excel_c=len(SVCP_not_in_excel_1)      
 
     r=1
-    for s in SVCP_List:
+    for s in SVCP_List: 
             if s not in svcp_in_files:
                     sheet_2.write(r,1,s)
                     r=r+1
     SVCP_not_in_script_c=r-1
 
-
-
+    Total_Num_Testscript= RemoveDuplicate(MasterFileNameList)
+    Total_Num_Result = RemoveDuplicate(Total_Num_Result)
+    k=1
+    Cnt= 0
+    for Tscript in Total_Num_Testscript:
+      if(Tscript.endswith(tuple(FileTypeList_withoutResult))):
+        ScriptWithoutPath=Tscript.split("\\")[-1]
+        Cnt = Cnt+1
+        #print Total_Num_Testscript
+        if ScriptWithoutPath not in Total_Num_Result:
+                ScriptWithoutPath_List=Tscript.split("_")
+                if ('SPDA' in ScriptWithoutPath_List[0]) or ('MLCT' in ScriptWithoutPath_List[0]):
+                   sheet_3.write(k,1,ScriptWithoutPath)
+                   k = k+1
+    Number_Result_Files_Not_present = k-1
+    Total_script_Count = Cnt
     now = datetime.datetime.now()
     date_time=now.strftime("_%m-%d-%Y_%Hh-%Mm-%Ss")
     final_excel_name='Analysis'+date_time+'.xls'
     wb_2.save(final_excel_name)
     os.remove(workbook_name)
+    
+    return SVCP_not_in_excel_c,SVCP_not_in_script_c,final_excel_name,Number_Result_Files_Not_present,Total_script_Count
 
-
-
-    return SVCP_not_in_excel_c,SVCP_not_in_script_c,final_excel_name
-
-
-
-
-
-###################################################################################
-
-
-
+################################################################################
+# main Function 
+################################################################################  
 def main():
-
+        
                 start_time = time.time()
                 empty = Label(window,text="Execution Status", font=("Times New Roman Bold", 12))
                 empty.place(x=10, y=220+50)
-                input_frame1 = Frame(window, width = 200, height = 22 , bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 1)
-                input_frame1.place(x=130, y=223+50)
-                w = Label(input_frame1,text="IN PROGRESS   ", bg="Yellow",font=("Times New Roman", 10)).pack()
                 validate_but=Button(window,text=" Validate Inputs ", font=("Times New Roman", 12),state=DISABLED)
                 validate_but.place(x=80,y=205)
-
+                a = inprogress()
                 DateFormat = "%d%b%Y_%I-%M-%S-%p"
                 SrartTimeStamp = datetime.datetime.now()
 
@@ -1489,10 +1579,10 @@ def main():
                 global error_log_file
                 global SCVP_in_Excel_c
                 global date_time1
+                global Number_Result_Files_Not_present
+                global Total_script_Count
                 global DocxFileList
-
                 DocxFileList=[]
-
                 path=os.getcwd()
                 now = datetime.datetime.now()
                 date_time1=now.strftime("_%m-%d-%Y_%Hh-%Mm-%Ss")
@@ -1519,18 +1609,18 @@ def main():
                 Results_Count_without_docx=[]
                 
                 SVCP_Count=[]
-
-
+                
+             
                 Script_Mismatch=[]
                 Test_Case_Mismatch=[]
                 Syn_Result_TestScript=[]
                 Time_Stamp_Mismatch=[]
-
-
+                
+                
                 SVCP_List=[]
                 Final_Revision=final_version_text_box.get()
-
-
+                
+        
                 work_path = 'E2SPDA-SynergyDataAnalysisReport-'+SrartTimeStamp.strftime(DateFormat)+'\\'
 
                 print '==> Collection of File Names From Synergy Folder Started ...'
@@ -1538,6 +1628,8 @@ def main():
                 global FileWithoutPath
                 global ResultFileList
                 Synergy_path = BrowseFolderPath()
+
+                                                
                 MasterFileNameList = GetListOfFilesFromFolder (Synergy_path, FileTypeList_withoutResult)         # Store all the script name in MasterFileNameList
                 ExcelFileList=GetListOfFilesFromFolder (Synergy_path, ExcelFiles)
                 ResultFileList=GetListOfFilesFromFolder (Synergy_path, ResultFileTypeList)
@@ -1551,8 +1643,8 @@ def main():
                 
                 if len(MasterFileNameList)!= 0:
                         GetSVCPList()
-                        SVCP_not_in_excel,SVCP_not_in_script,final_excel_name = ConsolidateData(ExcelFileList)
-
+                        SVCP_not_in_excel,SVCP_not_in_script,final_excel_name,Number_Result_Files_Not_present,Total_script_Count = ConsolidateData(ExcelFileList)
+                        
                         Script_Mismatch=RemoveDuplicate(Script_Mismatch)
                         Test_Case_Mismatch=RemoveDuplicate(Test_Case_Mismatch)
                         Syn_Result_TestScript=RemoveDuplicate(Syn_Result_TestScript)
@@ -1563,12 +1655,12 @@ def main():
                         Script_Count_without_docx=RemoveDuplicate(Script_Count_without_docx)
                         Results_Count_without_docx=RemoveDuplicate(Results_Count_without_docx)
                         SVCP_Count=RemoveDuplicate(SVCP_Count)
-
+                        
                         Not_Found_STC=RemoveDuplicate(Not_Found_STC)
                         Not_Found_STS=RemoveDuplicate(Not_Found_STS)
                         Not_Found_STR=RemoveDuplicate(Not_Found_STR)
                         SVCP_List=RemoveDuplicate(SVCP_List)
-
+                        
                         Script_Mismatch_c=len(Script_Mismatch)
                         Test_Case_Mismatch_c=len(Test_Case_Mismatch)
                         Syn_Result_TestScript_c=len(Syn_Result_TestScript)
@@ -1586,34 +1678,41 @@ def main():
                         Not_Found_STC_c=len(Not_Found_STC)
                         Not_Found_STS_c=len(Not_Found_STS)
                         Not_Found_STR_c=len(Not_Found_STR)
-
+                        
                         now = datetime.datetime.now()
                         date_time=now.strftime("_%m-%d-%Y_%Hh-%Mm-%Ss")
                         mismatch_name='Mismatch_Count'+date_time+'.txt'
 
                         count_mismatch_file=open(mismatch_name,"w+")
+                        
+                        count_mismatch_file.write(" Mismatches Count\n")
+                        count_mismatch_file.write("\nNo. of SVCP ID not linked to TPS ID = "+str(TPS_list_c)+"/"+str(SVCP_Count_c) +" (Refer column H in 'Analysis' sheet)\n" )
+                        count_mismatch_file.write("\nNo. of SVCP not linked to Requirement = "+str(SVCP_not_in_excel)+"/"+str(SVCP_Count_c)+ "(Refere clumn A in 'Bank SVCP IDs' sheet\n")                        
 
-                        count_mismatch_file.write(" Mismatches Count Below")
-                        count_mismatch_file.write("\nSynergy Version Vs Manual Version = "+str(Script_Mismatch_c)+"/"+str(Script_Count_without_docx_c))
-                        count_mismatch_file.write("\nTest case count in script Vs Test case count in Result = "+str(Test_Case_Mismatch_c)+"/"+str(Results_Count_c))
-                        count_mismatch_file.write("\nSynergy version mismatch in Result = "+str(Syn_Result_TestScript_c)+"/"+str(Results_Count_without_docx_c))
-                        count_mismatch_file.write("\nTime stamp Mismatch TS Vs TR = " +str(Time_Stamp_Mismatch_c)+"/"+str(Results_Count_without_docx_c))
-                        count_mismatch_file.write("\nNo. of SVCP not linked to Requirement = "+str(SVCP_not_in_excel)+"/"+str(SVCP_Count_c))
-                        count_mismatch_file.write("\nNo. of SVCP not linked to Script = "+str(SVCP_not_in_script)+"/"+str(SCVP_in_Excel_c))
-                        count_mismatch_file.write("\nSVCP not found in Review Checklist = "+str(Not_Found_STC_c)+"/"+str(SVCP_Count_c))
-                        count_mismatch_file.write("\nScripts not found in Review Checklist = "+str(Not_Found_STS_c)+"/"+str(Script_Count_c))
-                        count_mismatch_file.write("\nResults not found in Review Checklist = "+str(Not_Found_STR_c)+"/"+str(Results_Count_c))
-                        count_mismatch_file.write("\nNo. of SVCP ID not linked to TPS ID = "+str(TPS_list_c)+"/"+str(SVCP_Count_c))
+              
+                        count_mismatch_file.write("\nSynergy Version Vs Manual Version = "+str(Script_Mismatch_c)+"/"+str(Script_Count_without_docx_c)+" (Refer column E in 'Analysis' sheet)\n" )
+                        count_mismatch_file.write("\nNo. of SVCP not linked to Script = "+str(SVCP_not_in_script)+"/"+str(SCVP_in_Excel_c)+ "(Refere clumn B in 'Bank SVCP IDs' sheet\n")
+                        
+                        count_mismatch_file.write("\nTest case count in script Vs Test case count in Result = "+str(Test_Case_Mismatch_c)+"/"+str(Results_Count_c)+" (Refer column R in 'Analysis' sheet)\n" )
+                        count_mismatch_file.write("\nSynergy version mismatch in Result = "+str(Syn_Result_TestScript_c)+"/"+str(Results_Count_without_docx_c)+" (Refer column S in 'Analysis' sheet)\n")
+                        count_mismatch_file.write("\nTime stamp Mismatch TS Vs TR = " +str(Time_Stamp_Mismatch_c)+"/"+str(Results_Count_without_docx_c)+" (Refer column T in 'Analysis' sheet)\n")
+                        count_mismatch_file.write("\nNo. Result files missing from synergy = "+str(Number_Result_Files_Not_present)+"/"+str(Total_script_Count)+" (Refer column B in Result files missing)\n")
+                        
+                        count_mismatch_file.write("\nSVCP not found in Review Checklist = "+str(Not_Found_STC_c)+"/"+str(SVCP_Count_c) + " (Refer column U in 'Analysis' sheet)\n")
+                       
+                        count_mismatch_file.write("\nScripts not found in Review Checklist = "+str(Not_Found_STS_c)+"/"+str(Script_Count_c) + " (Refer column V in 'Analysis' sheet)\n")
+                        count_mismatch_file.write("\nResults not found in Review Checklist = "+str(Not_Found_STR_c)+"/"+str(Results_Count_c)+ " (Refer column W in 'Analysis' sheet)\n")
+                        
 
-
+                        
                         count_mismatch_file.close()
-
+                        
                         EndTimeStamp = datetime.datetime.now()
 
                         TimeTaken = EndTimeStamp-SrartTimeStamp
-
+                        
                         total_seconds = time.time() - start_time
-                        seconds_1 = total_seconds % (24 * 3600)
+                        seconds_1 = total_seconds % (24 * 3600) 
                         hour = seconds_1 // 3600
                         seconds_1 %= 3600
                         minutes = seconds_1 // 60
@@ -1632,7 +1731,9 @@ def main():
 
 
 
-
+################################################################################
+# Inputs SVCP Sheet validate Function 
+################################################################################  
 def sheet_validate():
     main_flag=2
     main1_flag=2
@@ -1646,7 +1747,7 @@ def sheet_validate():
     validate_but=Button(window,text=" Validate Inputs ", font=("Times New Roman", 12),state=DISABLED)
     validate_but.place(x=80,y=205)
 
-
+        
     if len(final_version_text_box.get()) == 0:
         tkMessageBox.showinfo("Error"," Enter the SVCP Baseline version")
         validate_but=Button(window,text=" Validate Inputs ", font=("Times New Roman", 12),command=sheet_validate)
@@ -1663,26 +1764,25 @@ def sheet_validate():
         progress_step = float(100.0/len(teams))
         for team in teams:
            popup.update()
-           sleep(4) # launch task
+           sleep(4) # lauch task
            progress += progress_step
            progress_var.set(progress)
-
-        #TPS
+        
         try:
-           wb_main_app_svcp=openpyxl.load_workbook(tpspath)
-           sheet_mainapp = wb_main_app_svcp.worksheets[0]
+           wb_main_app_svcp=xlrd.open_workbook(tpspath)        
+           sheet_mainapp = wb_main_app_svcp.sheet_by_index(0)
            flag_1=0
            flag_2=0
            flag_3=0
-           for col in range(1,sheet_mainapp.max_column+1):
-               if("ID" in str(sheet_mainapp.cell(row=1,column=col).value)):
+           for col in range(0,sheet_mainapp.ncols):
+               if("ID" in sheet_mainapp.cell_value(0,col)):
                               flag_1=1
-               if("Out-links at depth 1" in str(sheet_mainapp.cell(row=1,column=col).value)):
+               if("Out-links at depth 1" in sheet_mainapp.cell_value(0,col)):
                               flag_2=2
-##               if("Out-links at depth" in sheet_mainapp.cell_value(0,col)):
-##                              flag_3=3
-
-           if(flag_1==0 and flag_2==0):
+               if("Out-links at depth" in sheet_mainapp.cell_value(0,col)):
+                              flag_3=3
+                              
+           if(flag_1==0 and flag_2==0 and flag_3==0):
                 main_flag=1
                 tkMessageBox.showinfo("Error"," Attribute(s) ID and Out-links at depth 1 are missing in the TPS_SVCP file\n Please select the correct file")
            elif(flag_1==0 ):
@@ -1697,28 +1797,26 @@ def sheet_validate():
            if(main_flag==1):
                 input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 1)
                 input_frame.place(x=180,y=130)
-                lbl2=Label(input_frame, text= "                                                  " , fg='Black', width = 30, height = 1,font=("Times New Roman", 10),bg="White").pack()
+                lbl2=Label(input_frame, text= "                                                  " , fg='Black', width = 30, height = 1,font=("Times New Roman", 10),bg="White").pack()  
 
-        except Exception as e:
-           print("TCP",e)
+        except:                              
            tkMessageBox.showinfo("Error", "TPS_SVCP_TR.xlsx file is not selected\n")
            tk.Label(popup, width = 40, height = 3,text="Inputs are not proper").grid(row=0,column=0)
-
         #Main App
-        try:
-           wb_main_app_svcp_1=openpyxl.load_workbook(swddpath)
-           sheet_mainapp_1 = wb_main_app_svcp_1.worksheets[0]
+        try:   
+           wb_main_app_svcp_1=xlrd.open_workbook(swddpath)        
+           sheet_mainapp_1 = wb_main_app_svcp_1.sheet_by_index(0)
            flag_1=0
            flag_2=0
            flag_3=0
-           for col in range(1,sheet_mainapp_1.max_column+1):
-               if("ID" in str(sheet_mainapp_1.cell(row=1,column=col).value)):
+           for col in range(0,sheet_mainapp_1.ncols):
+               if("ID" in sheet_mainapp_1.cell_value(0,col)):
                               flag_1=1
-               if("Out-links at depth 1" in str(sheet_mainapp_1.cell(row=1,column=col).value)):
+               if("Out-links at depth 1" in sheet_mainapp_1.cell_value(0,col)):
                               flag_2=2
-               if("DS10793/327" in str(sheet_mainapp_1.cell(row=1,column=col).value)):
+               if("DS10793/327" in sheet_mainapp_1.cell_value(0,col)):
                               flag_3=3
-
+                              
            if(flag_1==0 and flag_2==0 and flag_3==0):
                 main1_flag=1
                 tkMessageBox.showinfo("Error"," Attribute(s) ID, Out-links at depth 1 and DS10793/327 are missing in the Main App file\n Please select the correct file")
@@ -1738,27 +1836,27 @@ def sheet_validate():
                 input_frame.place(x=180,y=70)
                 lbl2=Label(input_frame, text="                                                  " , width = 30, height = 1,fg='Black', font=("Times New Roman", 10),bg="White").pack()
 
-        except:
+        except:                              
            tkMessageBox.showinfo("Error", "Main App file.xlsx file is not selected\n")
            tk.Label(popup, width = 40, height = 3,text="Inputs are not proper").grid(row=0,column=0)
 
 
         #MLCT
-        try:
-           wb_main_app_svcp_2=openpyxl.load_workbook(mlctpath)
-           sheet_mainapp_2 = wb_main_app_svcp_2.worksheets[0]
+        try:           
+           wb_main_app_svcp_2=xlrd.open_workbook(mlctpath)        
+           sheet_mainapp_2 = wb_main_app_svcp_2.sheet_by_index(0)
            flag_1=0
            flag_2=0
            flag_3=0
-           for col in range(1,sheet_mainapp_2.max_column+1):
-               if("Out-links at depth 2" in str(sheet_mainapp_2.cell(row=1,column=col).value)):
+           for col in range(0,sheet_mainapp_2.ncols):
+               if("Out-links at depth 2" in sheet_mainapp_2.cell_value(0,col)):
                               flag_1=1
-
-
-               if("Out-links at depth 1" in str(sheet_mainapp_2.cell(row=1,column=col).value)):
+                              
+                              
+               if("Out-links at depth 1" in sheet_mainapp_2.cell_value(0,col)):
                               flag_2=2
 
-               if("DS10793/327 - E2 SPDA Software Verification Cases and Procedures (MLCT is currently part of E2 SPDA SVCP)" in str(sheet_mainapp_2.cell(row=1,column=col).value)):
+               if("DS10793/327 - E2 SPDA Software Verification Cases and Procedures (MLCT is currently part of E2 SPDA SVCP)" in sheet_mainapp_2.cell_value(0,col)):
                               flag_3=3
            if(flag_1==0 and flag_2==0 and flag_3 ==0):
                 main2_flag=1
@@ -1773,14 +1871,13 @@ def sheet_validate():
                 main2_flag=1
                 tkMessageBox.showinfo("Error"," Attribute(s) DS10793/327 is missing in the MLCT_SVCP file\n Please select the correct file")
            else:
-                main2_flag=0
+                main2_flag=0                 
            if main2_flag==1:
                    input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 1)
                    input_frame.place(x=180,y=100)
                    lbl2=Label(input_frame, text= "                                                  " , fg='Black', width = 30, height = 1,font=("Times New Roman", 10),bg="White").pack()
 
-        except Exception as e:
-	   print(e)
+        except:                              
            tkMessageBox.showinfo("Error", "MLCT_SVCP file.xlsx file is not selected\n")
            tk.Label(popup, width = 40, height = 3,text="Inputs are not proper").grid(row=0,column=0)
         if(main_flag==0 and main1_flag==0 and main2_flag==0 ):
@@ -1790,37 +1887,29 @@ def sheet_validate():
                 tk.Label(popup, width = 40, height = 3,text="Inputs are validated").grid(row=0,column=0)
         validate_but=Button(window,text=" Validate Inputs ", font=("Times New Roman", 12),command=sheet_validate)
         validate_but.place(x=80,y=205)
+        
 
-
-
-
-
-
-def run_complete(final_excel_name,h,m,s):
-
-
-
-
-
-
-
+################################################################################
+# Function to dispaly the mismatch count in GUI
+################################################################################  
+def run_complete(final_excel_name,h,m,s):        
         input_text = StringVar()
 
         input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
         input_frame.place(x=850, y=70+30) #1
-        if TPS_list_c==0:
+        if TPS_list_c==0:			
               l11 = Label (input_frame, width = 12, height = 1,text=" "+ str(TPS_list_c)+"/"+str(SVCP_Count_c) +" ", bg="Lightgreen",font=("Times New Roman", 11)).pack()
-        else:
+        else:       
               l11 = Label (input_frame, width = 12, height = 1,text=" "+ str(TPS_list_c)+"/"+str(SVCP_Count_c) +" ", bg="lightcoral",font=("Times New Roman", 11)).pack()
 
         input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
         input_frame.place(x=850, y=110+20)#2
-        if SVCP_not_in_excel==0:
+        if SVCP_not_in_excel==0:	
             l12 = Label (input_frame,width = 12, height = 1, text=" "+ str(SVCP_not_in_excel)+"/"+str(SVCP_Count_c) +" ", bg="Lightgreen",font=("Times New Roman", 11)).pack()
-        else:
+        else:	
             l12 = Label (input_frame,width = 12, height = 1, text=" "+ str(SVCP_not_in_excel)+"/"+str(SVCP_Count_c) +" ", bg="lightcoral",font=("Times New Roman", 11)).pack()
 
-
+       
         input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "White", highlightthickness = 2)
         input_frame.place(x=850, y=170+30)#3
         if Script_Mismatch_c==0:
@@ -1830,9 +1919,9 @@ def run_complete(final_excel_name,h,m,s):
 
         input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
         input_frame.place(x=850, y=170+60)#4
-        if SVCP_not_in_script==0:
+        if SVCP_not_in_script==0:			
             l14 = Label (input_frame, width = 12, height = 1, text=" "+ str(SVCP_not_in_script)+"/"+str(SCVP_in_Excel_c) +" ", bg="Lightgreen",font=("Times New Roman", 11)).pack()
-        else:
+        else:	
             l14 = Label (input_frame, width = 12, height = 1, text=" "+ str(SVCP_not_in_script)+"/"+str(SCVP_in_Excel_c) +" ", bg="lightcoral",font=("Times New Roman", 11)).pack()
 
 
@@ -1859,35 +1948,44 @@ def run_complete(final_excel_name,h,m,s):
         else:
            l17 = Label (input_frame,width = 12, height = 1, text=" "+ str(Time_Stamp_Mismatch_c)+"/"+str(Results_Count_without_docx_c) +" ", bg="lightcoral",font=("Times New Roman", 11)).pack()
 
+        input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
+        input_frame.place(x=850, y=270+120)#8
+        if Number_Result_Files_Not_present ==0:
+           l178 = Label (input_frame,width = 12, height = 1, text=" "+ str(Number_Result_Files_Not_present)+"/"+str(Total_script_Count) +" ", bg="Lightgreen",font=("Times New Roman", 11)).pack()
+        else:
+           l178 = Label (input_frame,width = 12, height = 1, text=" "+ str(Number_Result_Files_Not_present)+"/"+str(Total_script_Count) +" ", bg="lightcoral",font=("Times New Roman", 11)).pack()
 
         input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
-        input_frame.place(x=850, y=410+30)#8
-        if Not_Found_STC_c==0:
+        input_frame.place(x=850, y=430+30)#9
+        if Not_Found_STC_c==0:			
             l18 = Label (input_frame,width = 12, height = 1, text=" "+ str(Not_Found_STC_c)+"/"+str(SVCP_Count_c) +" ", bg="Lightgreen",font=("Times New Roman", 11)).pack()
         else:
-            l18 = Label (input_frame, width = 12, height = 1, text=" "+ str(Not_Found_STC_c)+"/"+str(SVCP_Count_c) +" ", bg="lightcoral",font=("Times New Roman", 11)).pack()
+            l18 = Label (input_frame, width = 12, height = 1, text=" "+ str(Not_Found_STC_c)+"/"+str(SVCP_Count_c) +" ", bg="lightcoral",font=("Times New Roman", 11)).pack()		
 
         input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
-        input_frame.place(x=850, y=410+60) #9
+        input_frame.place(x=850, y=430+60) #10
         if Not_Found_STS_c==0:
               l19 = Label (input_frame, width = 12, height = 1,text=" "+ str(Not_Found_STS_c)+"/"+str(Script_Count_c) +" ",bg="Lightgreen", font=("Times New Roman", 11)).pack()
-        else:
+        else:	  
               l19 = Label (input_frame, width = 12, height = 1,text=" "+ str(Not_Found_STS_c)+"/"+str(Script_Count_c) +" ",bg="lightcoral", font=("Times New Roman", 11)).pack()
-
+			  
         input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
-        input_frame.place(x=850, y=410+90) #10
-        if Not_Found_STR_c==0:
+        input_frame.place(x=850, y=430+90) #11
+        if Not_Found_STR_c==0:		
               l20 = Label (input_frame,width = 12, height = 1, text=" "+ str(Not_Found_STR_c)+"/"+str(Results_Count_c) +" ",bg="Lightgreen", font=("Times New Roman", 11)).pack()
         else:
-              l20 = Label (input_frame,width = 12, height = 1, text=" "+ str(Not_Found_STR_c)+"/"+str(Results_Count_c) +" ",bg="lightcoral", font=("Times New Roman", 11)).pack()
+              l20 = Label (input_frame,width = 12, height = 1, text=" "+ str(Not_Found_STR_c)+"/"+str(Results_Count_c) +" ",bg="lightcoral", font=("Times New Roman", 11)).pack()		
 
-
+			  
         empty = Label(window,text="Execution Status", font=("Times New Roman Bold", 12))
         empty.place(x=10, y=220+50)
         input_frame1 = Frame(window, width = 200, height = 22 , bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 1)
         input_frame1.place(x=130, y=223+50)
         w = Label(input_frame1,text="COMPLETED    ", bg="lightskyblue", font=("Times New Roman", 10)).pack()
-
+        run_but=Button(window, text="        Run       ", bd=2,fg='Black',font=("Times New Roman Bold", 12),command=main)
+        run_but.place(x=10, y=350+30)
+        run_but1=Button(window, text="        Run       ", bd=2,fg='Black',font=("Times New Roman Bold", 12), command=main)
+        run_but1.place(x=10, y=350+30)
 
         empty = Label(window,text="Elapsed time", font=("Times New Roman Bold", 12))
         empty.place(x=10, y=270+50)
@@ -1895,17 +1993,16 @@ def run_complete(final_excel_name,h,m,s):
         input_frame1.place(x=130, y=270+50)
         w = Label(input_frame1,text="%02d:%02d:%02d" %(h, m, s), font=("Times New Roman", 10)).pack()
 
-
+        
         path=os.getcwd()
         Excel_filepath=path+"\\"+final_excel_name
-        #date_time=""
         error_log=path+"\\error_log"+date_time1+".txt"
 
         def openerror():
             os.startfile(error_log, 'open')
         def openexcel():
             os.startfile(Excel_filepath, 'open')
-
+        
         lbl1=Label(window, text="Error Log Path:", fg='Black', font=("Times New Roman bold", 10))
         lbl1.place(x=10,y=560)
         lbl2=Label(window, text=error_log, fg='Black', bd=2,font=("Times New Roman", 10))
@@ -1919,43 +2016,57 @@ def run_complete(final_excel_name,h,m,s):
         button3 = Button(window, text="  Open  ", command=openexcel)
         button3.place(x=700,y=620)
 
+        
 
-
-
+################################################################################
+# Function to abort the excution
+################################################################################ 
 def stop_fun():
         window.destroy()
         sys.exit()
 
+################################################################################
+# Function to browse the main_app file
+################################################################################
 def browse_swdd():
         global swddpath
         swddpath = tkFileDialog.askopenfilename(filetypes=(("Template files","*.xlsx"),("All files","*.xlsx")))
         disp_path=swddpath.split("/")[-1]
         input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 1)
         input_frame.place(x=180,y=70)
-        lbl2=Label(input_frame, text= disp_path , fg='Black', font=("Times New Roman", 10),width = 30, height = 1,bg="White").pack()
+        lbl2=Label(input_frame, text= disp_path , fg='Black', font=("Times New Roman", 10),width = 30, height = 1,bg="White").pack()        
         print(swddpath)
 
+################################################################################
+# Function to browse the MLCT file
+################################################################################
 def browse_mlct():
         global mlctpath
         mlctpath = tkFileDialog.askopenfilename(filetypes=(("Template files","*.xlsx"),("All files","*.xlsx")))
         disp_path=mlctpath.split("/")[-1]
         input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 1)
         input_frame.place(x=180,y=100)
-        lbl2=Label(input_frame, text= disp_path , fg='Black', font=("Times New Roman", 10),width = 30, height = 1,bg="White").pack()
+        lbl2=Label(input_frame, text= disp_path , fg='Black', font=("Times New Roman", 10),width = 30, height = 1,bg="White").pack()        
         print(mlctpath)
 
+################################################################################
+# Function to browse the TPS file
+################################################################################
 def browse_tps():
-     try:
+     try:   
         global tpspath
         tpspath = tkFileDialog.askopenfilename(filetypes=(("Template files","*.xlsx"),("All files","*.xlsx")))
         disp_path=tpspath.split("/")[-1]
         input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 1)
         input_frame.place(x=180,y=130)
-        lbl2=Label(input_frame, text= disp_path , fg='Black', font=("Times New Roman", 10),width = 30, height = 1,bg="White").pack()
+        lbl2=Label(input_frame, text= disp_path , fg='Black', font=("Times New Roman", 10),width = 30, height = 1,bg="White").pack()        
         print(tpspath)
-     except:
+     except:                              
          tkMessageBox.showinfo("TPS_SVCP_TR.xlsx file is not selected\n")
 
+################################################################################
+# Function for work instructions (readme)
+################################################################################
 def Help():
     from os.path import exists
     window1 = Tkinter.Tk()
@@ -1965,8 +2076,6 @@ def Help():
     lbl=Label(window1, text="Steps to execute the E2 SPDA Synergy Analysis Tool:", fg='Black', font=("Times New Roman Bold", 16),anchor=CENTER,bg="light blue", padx=1000)
     lbl.pack(side="top")
 
-##    lbl2=Label(window1, text="Steps to execute the E2 SPDA Synergy Analysis Tool:",bd=2,fg='Black',anchor=CENTER,bg="light blue", font=("Arial Bold", 15))
-##    lbl2.place(x=50,y=10)
     lbl3=Label(window1, text="1. Extract Main_App_SVCP from E2 SPDA doors with the following attribute.",bd=2,fg='Black',font=("Times New Roman", 11))
     lbl3.place(x=10,y=60)
     lbl3=Label(window1, text="     - ID",bd=2,fg='Black',font=("Times New Roman", 11))
@@ -1980,7 +2089,7 @@ def Help():
     lbl3=Label(window1, text="     - Out-links at depth 2",bd=2,fg='Black',font=("Times New Roman", 11))
     lbl3.place(x=10,y=170)
 
-
+	
     lbl3=Label(window1, text="2. Extract MCLT_SVCP from E2 SPDA doors with the following attribute",bd=2,fg='Black',font=("Times New Roman", 11))
     lbl3.place(x=10,y=200)
     lbl3=Label(window1, text="     - ID",bd=2,fg='Black',font=("Times New Roman", 11))
@@ -1996,7 +2105,7 @@ def Help():
     lbl3=Label(window1, text="     - Out-links at depth 2",bd=2,fg='Black',font=("Times New Roman", 11))
     lbl3.place(x=10,y=320)
 
-
+	
     lbl3=Label(window1, text="3. Extract TPS SVCP surrogate from E2 SPDA doors with following attribute.",bd=2,fg='Black',font=("Times New Roman", 11))
     lbl3.place(x=10,y=350)
     lbl3=Label(window1, text="     - ID",bd=2,fg='Black',font=("Times New Roman", 11))
@@ -2004,10 +2113,10 @@ def Help():
     lbl3=Label(window1, text="     - In-links at depth 1",bd=2,fg='Black',font=("Times New Roman", 11))
     lbl3.place(x=10,y=390)
     lbl3=Label(window1, text="     - Out-links at depth",bd=2,fg='Black',font=("Times New Roman", 11))
-    lbl3.place(x=10,y=410)
-
-
-    lbl3=Label(window1, text="4. Select 3 input files in E2 SPDA GUI.",bd=2,fg='Black',font=("Times New Roman", 11))
+    lbl3.place(x=10,y=410)	
+	
+	
+    lbl3=Label(window1, text="4. Select above 3 input .xlsx files in E2 SPDA GUI.",bd=2,fg='Black',font=("Times New Roman", 11))
     lbl3.place(x=10,y=440)
     lbl3=Label(window1, text="5. Enter the Main app SVCP baseline version",bd=2,fg='Black',font=("Times New Roman", 11))
     lbl3.place(x=10,y=460)
@@ -2019,14 +2128,15 @@ def Help():
     lbl3.place(x=10,y=520)
     lbl3=Label(window1, text="9. Wait for the execution to complete.",bd=2,fg='Black',font=("Times New Roman", 11))
     lbl3.place(x=10,y=540)
-    lbl3=Label(window1, text="10.'error log' & 'Output file' path will be provided in the GUI bottom.",bd=2,fg='Black',font=("Times New Roman", 11))
+    lbl3=Label(window1, text="10.'error log' file contains the errors which are all occurs while executing the tool.",bd=2,fg='Black',font=("Times New Roman", 11))
     lbl3.place(x=10,y=560)
-
+    lbl3=Label(window1, text="10.'Output file' file contain verification matrix and path will be provided in the GUI bottom.",bd=2,fg='Black',font=("Times New Roman", 11))
+    lbl3.place(x=10,y=580)
 #GUI
 from os.path import exists
 
 window = Tkinter.Tk()
-window.geometry("990x680")
+window.geometry("990x680") 
 window.resizable(0, 0)
 window.title("Synergy Analysis Tool - E2 SPDA" )
 ratio = 16
@@ -2035,10 +2145,10 @@ vertical_edge_len = 1
 hypotenuse = tk.Frame(window, bg='Black', height=1, width=480)
 hypotenuse.place(x=490, y=85)
 
-hypotenuse = tk.Frame(window, bg='Black', height=460, width=1)
+hypotenuse = tk.Frame(window, bg='Black', height=471, width=1)
 hypotenuse.place(x=490, y=85)
 
-hypotenuse = tk.Frame(window, bg='Black', height=460, width=1)
+hypotenuse = tk.Frame(window, bg='Black', height=471, width=1)
 hypotenuse.place(x=970, y=85)
 
 hypotenuse = tk.Frame(window, bg='Black', height=1, width=480)
@@ -2048,10 +2158,10 @@ hypotenuse = tk.Frame(window, bg='Black', height=1, width=480)
 hypotenuse.place(x=490, y=185)
 
 hypotenuse = tk.Frame(window, bg='Black', height=1, width=480)
-hypotenuse.place(x=490, y=425)
+hypotenuse.place(x=490, y=445)
 
 hypotenuse = tk.Frame(window, bg='Black', height=1, width=480)
-hypotenuse.place(x=490, y=545)
+hypotenuse.place(x=490, y=555)
 
 
 
@@ -2073,7 +2183,7 @@ run_but.place(x=850, y=0)
 
 run_but=Button(window, text="        Run       ", bd=2,fg='Black',font=("Times New Roman Bold", 12), state=DISABLED, command=main)
 run_but.place(x=10, y=350+30)
-
+        
 abort_but=Button(window, text="       Abort      ", bd=2,fg='Black',font=("Times New Roman Bold", 12),state=DISABLED, command=stop_fun)
 abort_but.place(x=10, y=400+30)
 
@@ -2142,30 +2252,29 @@ l6.place(x=500, y=170+60)
 l1 = Label (window, text="Number of Test Result Mismatches", font=("Times New Roman Bold", 12))
 l1.place(x=500, y=270)
 
-
 l2 = Label (window, text="5. TC count Mismatch between TS and TR", font=("Times New Roman", 11))
 l2.place(x=500, y=270+30)
-
 
 l3 = Label (window, text="6. No. of Synergy version mismatch between TS and TR", font=("Times New Roman", 11))
 l3.place(x=500, y=270+60)
 
-l4 = Label (window, text="7. No. of Time stamp Mismatch between TS and TR", font=("Times New Roman", 10))
+l4 = Label (window, text="7. No. of Time stamp Mismatch between TS and TR", font=("Times New Roman", 11))
 l4.place(x=500, y=270+90)
 
+l4 = Label (window, text="8. No. Result files missing from synergy", font=("Times New Roman", 11))
+l4.place(x=500, y=270+120)
 
 l1 = Label (window, text="Number of Review checklists Mismatches", font=("Times New Roman Bold", 12))
-l1.place(x=500, y=410)
+l1.place(x=500, y=430)
 
-l7 = Label (window, text="8. No. of SVCP not found in Review Checklist", font=("Times New Roman", 11))
-l7.place(x=500, y=410+30)
+l7 = Label (window, text="9. No. of SVCP not found in Review Checklist", font=("Times New Roman", 11))
+l7.place(x=500, y=430+30)
 
-l8 = Label (window, text="9. No of Scripts not found in Review Checklist", font=("Times New Roman", 11))
-l8.place(x=500, y=410+60)
+l8 = Label (window, text="10. No. of Scripts not found in Review Checklist", font=("Times New Roman", 11))
+l8.place(x=500, y=430+60)
 
-l9 = Label (window, text="10. No. of Results not found in Review Checklist", font=("Times New Roman", 11))
-l9.place(x=500, y=410+90)
-
+l9 = Label (window, text="11. No. of Results not found in Review Checklist", font=("Times New Roman", 11))
+l9.place(x=500, y=430+90)
 
 input_text = StringVar()
 input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "White", highlightthickness = 2)
@@ -2176,8 +2285,6 @@ l11 = Label (input_frame,width = 12, height = 1, text= " 0/0 ", bg="white",font=
 input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
 input_frame.place(x=850, y=110+20)
 l12 = Label (input_frame, width = 12, height = 1,text=" 0/0 ",bg="white", font=("Times New Roman", 10)).pack()
-
-
 
 input_frame = Frame(window, width = 200, height = 22 , bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
 l13 = Label (input_frame,width = 12, height = 1, text=" 0/0 ", bg="white",font=("Times New Roman", 10)).pack()
@@ -2200,15 +2307,20 @@ input_frame.place(x=850, y=270+90)#
 l17 = Label (input_frame,width = 12, height = 1, text=" 0/0 ", bg="white",font=("Times New Roman", 10)).pack()
 
 input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
-input_frame.place(x=850, y=410+30) #
+input_frame.place(x=850, y=270+120)#
+l178 = Label (input_frame,width = 12, height = 1, text=" 0/0 ", bg="white",font=("Times New Roman", 10)).pack()
+
+
+input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
+input_frame.place(x=850, y=430+30) #
 l18 = Label (input_frame, width = 12, height = 1,text=" 0/0 ",bg="white", font=("Times New Roman", 10)).pack()
 
 input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
-input_frame.place(x=850, y=410+60) #
+input_frame.place(x=850, y=430+60) #
 l19 = Label (input_frame,width = 12, height = 1, text=" 0/0 ",bg="white", font=("Times New Roman", 10)).pack()
 
 input_frame = Frame(window, width = 200, height = 22, bg="White", highlightbackground = "black", highlightcolor = "black", highlightthickness = 2)
-input_frame.place(x=850, y=410+90)#
+input_frame.place(x=850, y=430+90)#
 l20 = Label (input_frame, width = 12, height = 1,text=" 0/0 ", bg="white", font=("Times New Roman", 10)).pack()
 
 
@@ -2229,14 +2341,9 @@ w = Label(input_frame1,text="00:00:00" , font=("Times New Roman", 10)).pack()
 lbl2=Label(window, text="Copyright (c) 2020 L&T Technology Services. All Rights Reserved.",fg='Black', font=("Times New Roman", 12), bg="light blue",padx=1000)
 lbl2.pack(side="bottom")
 
-##img = ImageTk.PhotoImage(Image.open("logo_ltts.gif"))
-##panel = Label(window, image = img, bg="white", padx=1000)
-##panel.pack(side = "bottom")
-
-
 window.mainloop()
 
-
+ 
 
 
 
